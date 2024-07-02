@@ -7,10 +7,9 @@ import threading
 # Choose a port that is free
 PORT = 5000
  
-# An IPv4 address is obtained
-# for the server.
-SERVER = socket.gethostbyname(socket.gethostname())
- 
+# Bind to all available interfaces
+SERVER = "0.0.0.0"
+
 # Address is stored as a tuple
 ADDRESS = (SERVER, PORT)
  

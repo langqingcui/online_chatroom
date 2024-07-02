@@ -10,7 +10,7 @@ from tkinter import ttk
 
  
 PORT = 5000
-SERVER = "172.20.10.2"
+SERVER = "120.46.87.122"
 ADDRESS = (SERVER, PORT)
 FORMAT = "utf-8"
  
