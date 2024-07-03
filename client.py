@@ -4,6 +4,7 @@ import threading
 from tkinter import *
 from tkinter import font
 from tkinter import ttk
+from tkinter import messagebox
  
 PORT = 5000
 SERVER = "120.46.87.122"
@@ -235,11 +236,14 @@ class GUI:
     
     # function to start the thread for sending messages
     def sendButton(self, msg):
-        self.textCons.config(state=DISABLED)
-        self.msg = msg
-        self.entryMsg.delete(0, END)
-        snd = threading.Thread(target=self.sendMessage)
-        snd.start()
+        if msg.strip():  # Check if the message is not empty or just spaces
+            self.textCons.config(state=DISABLED)
+            self.msg = msg
+            self.entryMsg.delete(0, END)
+            snd = threading.Thread(target=self.sendMessage)
+            snd.start()
+        else:
+            messagebox.showwarning("Warning", "Empty message cannot be sent")
  
     # function to receive messages
     def receive(self):
