@@ -91,7 +91,6 @@ class GUI:
         self.Window.protocol("WM_DELETE_WINDOW", self.on_closing)
     
     def loginUser(self,name,username, password):
-        print(self.entryName)
         message = f"LOGIN:{name}:{username}:{password}"
         client.send(message.encode(FORMAT))
         response = client.recv(1024).decode(FORMAT)
@@ -293,7 +292,6 @@ class GUI:
                     message, buffer = buffer.split("/n", 1)
                     
                     if message.startswith("USER_LIST:"):
-                        print("userlist")
                         # update the online users list
                         users = message.split(':')[1].split(',')
                         self.onlineUsers.delete(0, END)

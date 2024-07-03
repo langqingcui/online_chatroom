@@ -37,7 +37,6 @@ def startChat():
             
             # Start a new thread to handle this connection
             thread = threading.Thread(target=handle, args=(conn, addr))
-            print("thread start")
             thread.start()
             print(f"Active connections {threading.activeCount() - 2}")
             if not running:
@@ -75,8 +74,7 @@ def handle(conn, addr):
 def handle_register(conn, message):
     
     name, username, password = message.split(":")[1], message.split(":")[2],message.split(":")[3]
-    print(username)
-    print(password)
+
     cursor.execute("SELECT * FROM users WHERE username=?", (username,))
     if cursor.fetchone():
         conn.send("Username already exists".encode(FORMAT))
@@ -88,29 +86,19 @@ def handle_register(conn, message):
 #登录处理
 def handle_login(conn, message):
     name, username, password = message.split(":")[1], message.split(":")[2],message.split(":")[3]
-    print(username)
-    print(password)
+   
     cursor.execute("SELECT * FROM users WHERE username=? AND password=?", (username, password))
     if cursor.fetchone():
         conn.send("Login successful".encode(FORMAT))
         clients.append(conn)
         names.append(name)
         broadcastUserList()
-        print(names)
-        
-        
-        broadcastMessage(f"{name} has joined the chat!".encode(FORMAT))
-
-        
-
-        
+        broadcastMessage(f"{name} has joined the chat!".encode(FORMAT))  
     else:
         conn.send("Login failed".encode(FORMAT))
 
 def broadcastMessage(message):
-    print("jinru")
     for client in clients:
-        print(222)
         client.send(message+b"/n")
         
 
