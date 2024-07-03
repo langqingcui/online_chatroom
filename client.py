@@ -149,6 +149,9 @@ class GUI:
                             relx=0.011)
  
         self.entryMsg.focus()
+        
+        # bind the return key to send message
+        self.entryMsg.bind("<Return>", lambda event: self.sendButton(self.entryMsg.get()))
  
         # create a Send Button
         self.buttonMsg = Button(self.labelBottom,
