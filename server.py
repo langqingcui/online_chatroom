@@ -1,5 +1,6 @@
 import socket
 import threading
+import sys
 
 PORT = 5000
 SERVER = "0.0.0.0"
@@ -7,15 +8,17 @@ ADDRESS = (SERVER, PORT)
 FORMAT = "gbk"
 
 clients, names = [], []
+running = True  # Global flag to control server shutdown
 
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 server.bind(ADDRESS)
 
 def startChat():
-    print("server is working on " + SERVER)
+    global running
+    print("Server is working on " + SERVER)
     server.listen()
 
-    while True:
+    while running:
         try:
             conn, addr = server.accept()
             conn.send("NAME".encode(FORMAT))
@@ -27,25 +30,32 @@ def startChat():
             broadcastMessage(f"{name} has joined the chat!".encode(FORMAT))
             broadcastUserList()
 
-            # conn.send('Connection successful!'.encode(FORMAT))
-
+            # Start a new thread to handle this connection
             thread = threading.Thread(target=handle, args=(conn, addr))
             thread.start()
-            print(f"active connections {threading.activeCount() - 2}")
+            print(f"Active connections {threading.activeCount() - 2}")
+            
+            if not running:
+                break
+        except socket.timeout:
+            continue
         except Exception as e:
-            print("Server stopped.")
+            print(f"Server stopped due to: {e}")
             break
 
 def handle(conn, addr):
-    print(f"new connection {addr}")
+    global running
+    print(f"New connection {addr}")
     connected = True
 
-    while connected:
+    while connected and running:
         try:
             message = conn.recv(1024)
+            if not message:
+                break
             broadcastMessage(message)
         except:
-            connected = False
+            break
 
     names.remove(getClientName(conn))
     clients.remove(conn)
@@ -66,13 +76,19 @@ def getClientName(client):
     return names[index]
 
 def control_server():
+    global running
     while True:
         cmd = input()
         if cmd.lower() == "exit":
             print("Shutting down server...")
+            running = False
             for client in clients:
                 client.close()
             server.close()
-            break
 
+# Start the control server thread
+control_thread = threading.Thread(target=control_server, daemon=True)
+control_thread.start()
+
+# Start the chat server
 startChat()
