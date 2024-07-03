@@ -25,9 +25,11 @@ class GUI:
         # chat window which is currently hidden
         self.Window = Tk()
         self.Window.withdraw()
+        self.Window.protocol("WM_DELETE_WINDOW", self.on_closing)
  
         # login window
         self.login = Toplevel()
+        self.login.protocol("WM_DELETE_WINDOW", self.on_closing)
         # set the title
         self.login.title("Login")
         self.login.resizable(width=False,
@@ -73,6 +75,11 @@ class GUI:
         self.go.place(relx=0.4,
                       rely=0.55)
         self.Window.mainloop()
+        
+    def on_closing(self):
+        client.close()
+        self.Window.destroy()
+        exit(0)
  
     def goAhead(self, name):
         self.login.destroy()
@@ -81,6 +88,9 @@ class GUI:
         # the thread to receive messages
         rcv = threading.Thread(target=self.receive)
         rcv.start()
+ 
+        # add protocol to close the window and exit
+        self.Window.protocol("WM_DELETE_WINDOW", self.on_closing)
  
     # The main layout of the chat
     def layout(self, name):
