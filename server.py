@@ -27,7 +27,7 @@ def startChat():
             broadcastMessage(f"{name} has joined the chat!".encode(FORMAT))
             broadcastUserList()
 
-            conn.send('Connection successful!'.encode(FORMAT))
+            # conn.send('Connection successful!'.encode(FORMAT))
 
             thread = threading.Thread(target=handle, args=(conn, addr))
             thread.start()
