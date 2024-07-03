@@ -100,7 +100,7 @@ class GUI:
         self.Window.title("CHATROOM")
         self.Window.resizable(width=False,
                               height=False)
-        self.Window.configure(width=470,
+        self.Window.configure(width=700,
                               height=550,
                               bg="#17202A")
         self.labelHead = Label(self.Window,
@@ -112,7 +112,7 @@ class GUI:
  
         self.labelHead.place(relwidth=1)
         self.line = Label(self.Window,
-                          width=450,
+                          width=700,
                           bg="#ABB2B9")
  
         self.line.place(relwidth=1,
@@ -129,7 +129,7 @@ class GUI:
                              pady=5)
  
         self.textCons.place(relheight=0.745,
-                            relwidth=1,
+                            relwidth=0.7,
                             rely=0.08)
  
         self.labelBottom = Label(self.Window,
