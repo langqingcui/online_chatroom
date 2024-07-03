@@ -5,10 +5,6 @@ from tkinter import *
 from tkinter import font
 from tkinter import ttk
  
-# import all functions /
-#  everything from chat.py file
-
- 
 PORT = 5000
 SERVER = "120.46.87.122"
 ADDRESS = (SERVER, PORT)
@@ -56,8 +52,7 @@ class GUI:
                              relx=0.1,
                              rely=0.2)
  
-        # create a entry box for
-        # tyoing the message
+        # create a entry box for typing the message
         self.entryName = Entry(self.login,
                                font="Helvetica 14")
  
@@ -69,8 +64,7 @@ class GUI:
         # set the focus of the cursor
         self.entryName.focus()
  
-        # create a Continue Button
-        # along with action
+        # create a Continue Button along with action
         self.go = Button(self.login,
                          text="CONTINUE",
                          font="Helvetica 14 bold",
@@ -90,7 +84,6 @@ class GUI:
  
     # The main layout of the chat
     def layout(self, name):
- 
         self.name = name
         # to show chat window
         self.Window.deiconify()
@@ -141,8 +134,7 @@ class GUI:
                               fg="#EAECEE",
                               font="Helvetica 13")
  
-        # place the given widget
-        # into the gui window
+        # place the given widget into the gui window
         self.entryMsg.place(relwidth=0.74,
                             relheight=0.06,
                             rely=0.008,
@@ -171,16 +163,25 @@ class GUI:
         # create a scroll bar
         scrollbar = Scrollbar(self.textCons)
  
-        # place the scroll bar
-        # into the gui window
+        # place the scroll bar into the gui window
         scrollbar.place(relheight=1,
                         relx=0.974)
  
         scrollbar.config(command=self.textCons.yview)
  
         self.textCons.config(state=DISABLED)
+
+        # create a listbox to display online users
+        self.onlineUsers = Listbox(self.Window,
+                                   bg="#17202A",
+                                   fg="#EAECEE",
+                                   font="Helvetica 12")
+        self.onlineUsers.place(relwidth=0.3,
+                               relheight=0.745,
+                               rely=0.08,
+                               relx=0.68)
  
-    # function to basically start the thread for sending messages
+    # function to start the thread for sending messages
     def sendButton(self, msg):
         self.textCons.config(state=DISABLED)
         self.msg = msg
@@ -197,11 +198,16 @@ class GUI:
                 # if the messages from the server is NAME send the client's name
                 if message == 'NAME':
                     client.send(self.name.encode(FORMAT))
+                elif message.startswith('USER_LIST:'):
+                    # update the online users list
+                    users = message.split(':')[1].split(',')
+                    self.onlineUsers.delete(0, END)
+                    for user in users:
+                        self.onlineUsers.insert(END, user)
                 else:
                     # insert messages to text box
                     self.textCons.config(state=NORMAL)
-                    self.textCons.insert(END,
-                                         message+"\n\n")
+                    self.textCons.insert(END, message+"\n\n")
  
                     self.textCons.config(state=DISABLED)
                     self.textCons.see(END)
