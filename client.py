@@ -12,7 +12,7 @@ from tkinter import ttk
 PORT = 5000
 SERVER = "120.46.87.122"
 ADDRESS = (SERVER, PORT)
-FORMAT = "utf-8"
+FORMAT = "gbk"
  
 # Create a new client socket
 # and connect to the server

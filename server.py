@@ -15,7 +15,7 @@ ADDRESS = (SERVER, PORT)
  
 # the format in which encoding
 # and decoding will occur
-FORMAT = "utf-8"
+FORMAT = "gbk"
  
 # Lists that will contains
 # all the clients connected to
