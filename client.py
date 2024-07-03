@@ -6,9 +6,9 @@ from tkinter import font
 from tkinter import ttk
  
 PORT = 5000
-SERVER = "120.46.87.122"
+SERVER = "10.26.41.189"
 ADDRESS = (SERVER, PORT)
-FORMAT = "gbk"
+FORMAT = "utf-8"
  
 # Create a new client socket
 # and connect to the server
@@ -35,45 +35,42 @@ class GUI:
         self.login.resizable(width=False,
                              height=False)
         self.login.configure(width=400,
-                             height=300)
+                             height=400)
         # create a Label
         self.pls = Label(self.login,
                          text="Please login to continue",
                          justify=CENTER,
                          font="Helvetica 14 bold")
- 
+
         self.pls.place(relheight=0.15,
                        relx=0.2,
                        rely=0.07)
-        # create a Label
-        self.labelName = Label(self.login,
-                               text="Name: ",
-                               font="Helvetica 12")
- 
-        self.labelName.place(relheight=0.2,
-                             relx=0.1,
-                             rely=0.2)
- 
-        # create a entry box for typing the message
-        self.entryName = Entry(self.login,
-                               font="Helvetica 14")
- 
-        self.entryName.place(relwidth=0.4,
-                             relheight=0.12,
-                             relx=0.35,
-                             rely=0.2)
- 
-        # set the focus of the cursor
-        self.entryName.focus()
- 
-        # create a Continue Button along with action
-        self.go = Button(self.login,
-                         text="CONTINUE",
-                         font="Helvetica 14 bold",
-                         command=lambda: self.goAhead(self.entryName.get()))
- 
-        self.go.place(relx=0.4,
-                      rely=0.55)
+
+        # 昵称输入
+        self.labelName = Label(self.login, text="Name: ", font="Helvetica 12")
+        self.labelName.place(relheight=0.1, relx=0.1, rely=0.25)
+        self.entryName = Entry(self.login, font="Helvetica 14")
+        self.entryName.place(relwidth=0.4, relheight=0.08, relx=0.35, rely=0.25)
+
+        # 用户名输入
+        self.labelUserName = Label(self.login, text="Username: ", font="Helvetica 12")
+        self.labelUserName.place(relheight=0.1, relx=0.1, rely=0.35)
+        self.entryUserName = Entry(self.login, font="Helvetica 14")
+        self.entryUserName.place(relwidth=0.4, relheight=0.08, relx=0.35, rely=0.35)
+
+        # 密码输入
+        self.labelPass = Label(self.login, text="Password: ", font="Helvetica 12")
+        self.labelPass.place(relheight=0.1, relx=0.1, rely=0.45)
+        self.entryPass = Entry(self.login, font="Helvetica 14", show='*')
+        self.entryPass.place(relwidth=0.4, relheight=0.08, relx=0.35, rely=0.45)
+
+        #登录执行函数
+        self.go = Button(self.login, text="LOGIN", font="Helvetica 14 bold", command=lambda: self.loginUser(self.entryName.get(),self.entryUserName.get(), self.entryPass.get()))
+        self.go.place(relx=0.4, rely=0.6)
+
+        #注册执行函数
+        self.register = Button(self.login, text="REGISTER", font="Helvetica 14 bold", command=lambda: self.registerUser(self.entryName.get(),self.entryUserName.get(), self.entryPass.get()))
+        self.register.place(relx=0.4, rely=0.8)
         self.Window.mainloop()
         
     def on_closing(self):
@@ -91,6 +88,42 @@ class GUI:
  
         # add protocol to close the window and exit
         self.Window.protocol("WM_DELETE_WINDOW", self.on_closing)
+    
+    def loginUser(self,name,username, password):
+        print(self.entryName)
+        message = f"LOGIN:{name}:{username}:{password}"
+        client.send(message.encode(FORMAT))
+        response = client.recv(1024).decode(FORMAT)
+        if response == "Login successful":
+            self.login.destroy()
+            self.layout(name)
+            rcv = threading.Thread(target=self.receive)
+            rcv.start()
+        else:
+            self.show_error("Login failed. Please try again.")
+
+    def registerUser(self,name,username,password):
+        message = f"REGISTER:{name}:{username}:{password}"
+        client.send(message.encode(FORMAT))
+        response = client.recv(1024).decode(FORMAT)
+        if response == "Registration successful":
+            self.show_info("Registration successful. You can now log in.")
+        else:
+            self.show_error("Registration failed. Username may already exist.")
+
+    def show_error(self, message):
+        error = Toplevel(self.login)
+        error.title("Error")
+        error.geometry("300x100")
+        Label(error, text=message, font="Helvetica 12").pack(pady=10)
+        Button(error, text="OK", command=error.destroy).pack()
+
+    def show_info(self, message):
+        info = Toplevel(self.login)
+        info.title("Info")
+        info.geometry("300x100")
+        Label(info, text=message, font="Helvetica 12").pack(pady=10)
+        Button(info, text="OK", command=info.destroy).pack()
  
     # The main layout of the chat
     def layout(self, name):
@@ -212,28 +245,33 @@ class GUI:
  
     # function to receive messages
     def receive(self):
+        buffer = ""
         while True:
             try:
-                message = client.recv(1024).decode(FORMAT)
+                
+                
  
                 # if the messages from the server is NAME send the client's name
-                if message == 'NAME':
-                    client.send(self.name.encode(FORMAT))
-                elif message.startswith('USER_LIST:'):
-                    # update the online users list
-                    users = message.split(':')[1].split(',')
-                    self.onlineUsers.delete(0, END)
-                    for user in users:
-                        self.onlineUsers.insert(END, user)
-                    user_count = len(users)
-                    self.userOnlineLabel.config(text=f"User Online: {user_count}")
-                else:
-                    # insert messages to text box
-                    self.textCons.config(state=NORMAL)
-                    self.textCons.insert(END, message+"\n\n")
- 
-                    self.textCons.config(state=DISABLED)
-                    self.textCons.see(END)
+                
+                buffer += client.recv(1024).decode(FORMAT)
+                while "/n" in buffer:
+                    message, buffer = buffer.split("/n", 1)
+                    
+                    if message.startswith("USER_LIST:"):
+                        print("userlist")
+                        # update the online users list
+                        users = message.split(':')[1].split(',')
+                        self.onlineUsers.delete(0, END)
+                        for user in users:
+                            self.onlineUsers.insert(END, user)
+                        user_count = len(users)
+                        self.userOnlineLabel.config(text=f"User Online: {user_count}")
+                    else:
+                        # insert messages to text box
+                        self.textCons.config(state=NORMAL)
+                        self.textCons.insert(END, message+"\n\n")
+                        self.textCons.config(state=DISABLED)
+                        self.textCons.see(END)
             except:
                 # an error will be printed on the command line or console if there's an error
                 print("An error occurred!")
