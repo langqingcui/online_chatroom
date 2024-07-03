@@ -180,6 +180,17 @@ class GUI:
         scrollbar.config(command=self.textCons.yview)
  
         self.textCons.config(state=DISABLED)
+        
+        # create a label to display the number of online users
+        self.userOnlineLabel = Label(self.Window,
+                                    bg="#17202A",
+                                    fg="#EAECEE",
+                                    font="Helvetica 12",
+                                    text="User Online: 0")  # Default text with 0 online users
+        self.userOnlineLabel.place(relwidth=0.3,
+                                relheight=0.05,
+                                rely=0.08,
+                                relx=0.70)
 
         # create a listbox to display online users
         self.onlineUsers = Listbox(self.Window,
@@ -187,9 +198,9 @@ class GUI:
                                    fg="#EAECEE",
                                    font="Helvetica 12")
         self.onlineUsers.place(relwidth=0.3,
-                               relheight=0.745,
-                               rely=0.08,
-                               relx=0.68)
+                           relheight=0.69,
+                           rely=0.13,
+                           relx=0.70)
  
     # function to start the thread for sending messages
     def sendButton(self, msg):
@@ -214,6 +225,8 @@ class GUI:
                     self.onlineUsers.delete(0, END)
                     for user in users:
                         self.onlineUsers.insert(END, user)
+                    user_count = len(users)
+                    self.userOnlineLabel.config(text=f"User Online: {user_count}")
                 else:
                     # insert messages to text box
                     self.textCons.config(state=NORMAL)
