@@ -393,6 +393,7 @@ class PrivateChatWindow:
         self.entryMsg = Entry(self.window, bg="#2C3E50", fg="#EAECEE", font="Helvetica 13")
         self.entryMsg.place(relwidth=0.74, relheight=0.06, relx=0.011, rely=0.82)
         self.entryMsg.focus()
+        self.entryMsg.bind("<Return>", lambda event: self.sendButton(self.entryMsg.get()))
         
         self.buttonMsg = Button(self.window, text="Send", font="Helvetica 10 bold", width=20, bg="#ABB2B9",
                                 command=lambda: self.sendButton(self.entryMsg.get()))
