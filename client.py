@@ -329,6 +329,10 @@ class GUI:
                         self.textCons.insert(END, message+"\n\n")
                         self.textCons.config(state=DISABLED)
                         self.textCons.see(END)
+            except (ConnectionResetError, ConnectionAbortedError):
+                print(self.name + " connection closed")
+                client.close()
+                break
             except:
                 # an error will be printed on the command line or console if there's an error
                 print("An error occurred!")
