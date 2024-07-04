@@ -28,6 +28,9 @@ class GUI:
         self.Window = Tk()
         self.Window.withdraw()
         self.Window.protocol("WM_DELETE_WINDOW", self.on_closing)
+        
+        self.private_chats = {}
+        self.message_queues = {}
  
         # login window
         self.login = Toplevel()
@@ -258,6 +261,22 @@ class GUI:
                             relheight=0.64,
                             rely=0.13,
                             relx=0.70)
+        # Bind double-click event to Listbox
+        self.onlineUsers.bind("<Double-1>", self.open_private_chat)
+    
+    def open_private_chat(self, event):
+        selected_user = self.onlineUsers.get(self.onlineUsers.curselection())
+        if selected_user == self.name:
+            messagebox.showwarning("Private Chat Error", "You cannot begin a private chat with yourself.")
+            return
+        if selected_user not in self.private_chats:
+            self.private_chats[selected_user] = PrivateChatWindow(self, selected_user)
+            self.private_chats[selected_user].window.lift()
+            if selected_user in self.message_queues:
+                for msg in self.message_queues[selected_user]:
+                    self.private_chats[selected_user].receiveMessage(msg)
+                del self.message_queues[selected_user]
+        self.private_chats[selected_user].focus()
 
     def sendImage(self):
         file_path = filedialog.askopenfilename()  # 打开文件对话框选择图片
@@ -322,6 +341,15 @@ class GUI:
                         self.textCons.insert(END, '\n\n')  # 在图片后添加空行
                         self.textCons.config(state=DISABLED)
                         self.textCons.see(END)
+                    elif message.startswith('PRIVATE'):
+                        sender, receiver, msg = message.split(':')[1:]
+                        if receiver == self.name:
+                            if sender in self.private_chats:
+                                self.private_chats[sender].receiveMessage(f"{sender}: {msg}")
+                            else:
+                                if sender not in self.message_queues:
+                                    self.message_queues[sender] = []
+                                self.message_queues[sender].append(f"{sender}: {msg}")
                     else:
                         print("Received message")
                             # insert messages to text box
@@ -347,6 +375,54 @@ class GUI:
             client.send(message.encode(FORMAT))
             break
  
+class PrivateChatWindow:
+    def __init__(self, parent, user):
+        self.parent = parent
+        self.user = user
+        
+        self.window = Toplevel()
+        self.window.title(f"Private Chat with {user}")
+        self.window.geometry("400x400")
+
+        self.textCons = Text(self.window, bg="#17202A", fg="#EAECEE", font="Helvetica 14", padx=5, pady=5)
+        self.textCons.place(relheight=0.8, relwidth=1, relx=0, rely=0)
+        self.textCons.config(state=DISABLED)
+
+        self.entryMsg = Entry(self.window, bg="#2C3E50", fg="#EAECEE", font="Helvetica 13")
+        self.entryMsg.place(relwidth=0.74, relheight=0.06, relx=0.011, rely=0.82)
+        self.entryMsg.focus()
+        
+        self.buttonMsg = Button(self.window, text="Send", font="Helvetica 10 bold", width=20, bg="#ABB2B9",
+                                command=lambda: self.sendButton(self.entryMsg.get()))
+        self.buttonMsg.place(relx=0.77, rely=0.82, relheight=0.06, relwidth=0.22)
+
+        self.msg_queue = []
+
+    def sendButton(self, msg):
+        if msg.strip():
+            self.textCons.config(state=DISABLED)
+            self.msg = msg
+            self.entryMsg.delete(0, END)
+            snd = threading.Thread(target=self.sendMessage)
+            snd.start()
+        else:
+            messagebox.showwarning("Warning", "Empty message cannot be sent")
+
+    def sendMessage(self):
+        message = f"PRIVATE:{self.parent.name}:{self.user}:{self.msg}"
+        client.send(message.encode(FORMAT))
+        self.receiveMessage(f"{self.parent.name}: {self.msg}")
+
+    def receiveMessage(self, msg):
+        self.textCons.config(state=NORMAL)
+        self.textCons.insert(END, msg + "\n\n")
+        self.textCons.config(state=DISABLED)
+        self.textCons.see(END)
+    
+    def focus(self):
+        self.window.deiconify()
+        self.window.lift()
+        self.window.focus_force()
  
 # create a GUI class object
 g = GUI()
