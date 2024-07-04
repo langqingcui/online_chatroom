@@ -285,24 +285,9 @@ class GUI:
 
 
     def sendImage(self):
-        file_path = filedialog.askopenfilename()  # 打开文件对话框选择图片
-        if file_path:
-            with open(file_path, "rb") as image_file:
-                encoded_string = base64.b64encode(image_file.read()).decode("utf-8")
-                message = f"IMAGE:{encoded_string}"
-                self.imsg = message
-                sndi = threading.Thread(target=self.sendiMessage)
-                sndi.start()
-    
-    def sendiMessage(self):
-        self.textCons.config(state=DISABLED)
-        while True:
-            message = (f"{self.name}: {self.imsg}")
-            client.send(message.encode(FORMAT))
-            break
+        pass
 
     def sendEmoji(self):
-        # Implement the logic to handle sending emojis
         pass
     
     # function to start the thread for sending messages
@@ -338,19 +323,6 @@ class GUI:
                             self.userOnlineLabel.config(text=f"User Online: {user_count}")
                         except IndexError:
                             print("Error parsing user list")
-                    elif message.startswith('IMAGE'):
-                        print("Received image")
-                        encoded_image = message[6:]
-                        image_data = base64.b64decode(encoded_image)
-                        image = Image.open(io.BytesIO(image_data))
-                        photo = ImageTk.PhotoImage(image)
-
-                        # 在Text控件中显示图片
-                        self.textCons.config(state=NORMAL)
-                        self.textCons.image_create(END, image=photo)  # 插入图片
-                        self.textCons.insert(END, '\n\n')  # 在图片后添加空行
-                        self.textCons.config(state=DISABLED)
-                        self.textCons.see(END)
                     elif message.startswith('PRIVATE'):
                         print(message)
                         sender, receiver, msg = message.split(':')[1:]
