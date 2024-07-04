@@ -9,7 +9,7 @@ from tkinter import messagebox, filedialog
 from PIL import Image, ImageTk
  
 PORT = 5000
-SERVER = "120.46.87.122"
+SERVER = "172.20.10.3"
 ADDRESS = (SERVER, PORT)
 FORMAT = "utf-8"
  
@@ -342,6 +342,7 @@ class GUI:
                         self.textCons.config(state=DISABLED)
                         self.textCons.see(END)
                     elif message.startswith('PRIVATE'):
+                        print(message)
                         sender, receiver, msg = message.split(':')[1:]
                         if receiver == self.name:
                             if sender in self.private_chats:
@@ -350,6 +351,18 @@ class GUI:
                                 if sender not in self.message_queues:
                                     self.message_queues[sender] = []
                                 self.message_queues[sender].append(f"{sender}: {msg}")
+                    elif message.startswith("LOAD_CHAT_HISTORY:"):
+                        parts = message.split(':', -1)
+                        if len(parts) == 5:
+                            sender, receiver, chat_history = parts[1], parts[2], parts[3] + ": " + parts[4]
+                            if receiver == self.name and sender in self.private_chats:
+                                for msg in chat_history.split("/n"):
+                                    if msg:
+                                        self.private_chats[sender].receiveMessage(msg)
+                            elif sender == self.name and receiver in self.private_chats:
+                                for msg in chat_history.split("/n"):
+                                    if msg:
+                                        self.private_chats[receiver].receiveMessage(msg)
                     else:
                         print("Received message")
                             # insert messages to text box
@@ -361,9 +374,8 @@ class GUI:
                 print(self.name + " connection closed")
                 client.close()
                 break
-            except:
-                # an error will be printed on the command line or console if there's an error
-                print("An error occurred!")
+            except Exception as e:
+                print(f"An error occurred: {e}")
                 client.close()
                 break
  
@@ -400,9 +412,15 @@ class PrivateChatWindow:
         self.buttonMsg.place(relx=0.77, rely=0.82, relheight=0.06, relwidth=0.22)
 
         self.msg_queue = []
-        
+
+        self.load_chat_history()
+
+    def load_chat_history(self):
+        client.send(f"LOAD_CHAT_HISTORY:{self.parent.name}:{self.user}".encode(FORMAT))
+
     def on_closing(self):
-        del self.parent.private_chats[self.user]
+        if self.user in self.parent.private_chats:
+            del self.parent.private_chats[self.user]
         self.window.destroy()
 
     def sendButton(self, msg):
@@ -416,11 +434,12 @@ class PrivateChatWindow:
             messagebox.showwarning("Warning", "Empty message cannot be sent")
 
     def sendMessage(self):
-        message = f"PRIVATE:{self.parent.name}:{self.user}:{self.msg}"
+        message = f"PRIVATE:{self.parent.name}:{self.user}:{self.msg}/n"
         client.send(message.encode(FORMAT))
         self.receiveMessage(f"{self.parent.name}: {self.msg}")
 
     def receiveMessage(self, msg):
+        print("private receive message")
         self.textCons.config(state=NORMAL)
         self.textCons.insert(END, msg + "\n\n")
         self.textCons.config(state=DISABLED)
@@ -430,6 +449,8 @@ class PrivateChatWindow:
         self.window.deiconify()
         self.window.lift()
         self.window.focus_force()
+
+
  
 # create a GUI class object
 g = GUI()

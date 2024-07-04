@@ -26,6 +26,16 @@ cursor.execute('''CREATE TABLE IF NOT EXISTS users
               )''')
 db_conn.commit()
 
+# 创建私聊记录数据库
+cursor.execute('''CREATE TABLE IF NOT EXISTS private_messages
+             (
+              sender TEXT NOT NULL,
+              receiver TEXT NOT NULL,
+              message TEXT NOT NULL,
+              timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+              )''')
+db_conn.commit()
+
 def startChat():
     global running
     print("Server is working on " + SERVER)
@@ -59,6 +69,10 @@ def handle(conn, addr):
                 handle_register(conn, message)
             elif message.startswith("LOGIN"):
                 handle_login(conn, message)
+            elif message.startswith("LOAD_CHAT_HISTORY"):
+                handle_load_chat_history(conn, message)
+            elif message.startswith("PRIVATE"):
+                handle_private_message(conn, message)
             else:
                 broadcastMessage(message.encode(FORMAT))
         except ConnectionResetError:
@@ -99,6 +113,23 @@ def handle_login(conn, message):
         broadcastMessage(f"{name} has joined the chat!".encode(FORMAT))  
     else:
         conn.send("Login failed".encode(FORMAT))
+
+def handle_load_chat_history(conn, message):
+    sender, receiver = message.split(":")[1], message.split(":")[2]
+    cursor.execute("SELECT sender, message FROM private_messages WHERE (sender=? AND receiver=?) OR (sender=? AND receiver=?) ORDER BY timestamp", (sender, receiver, receiver, sender))
+    messages = cursor.fetchall()
+    for msg in messages:
+        chat_message = f"LOAD_CHAT_HISTORY:{sender}:{receiver}:{msg[0]}:{msg[1]}/n"
+        conn.send(chat_message.encode(FORMAT))
+
+def handle_private_message(conn, message):
+    sender, receiver, message = message.split(":")[1], message.split(":")[2], message.split(":")[3]
+    cursor.execute("INSERT INTO private_messages (sender, receiver, message) VALUES (?,?,?)", (sender, receiver, message))
+    db_conn.commit()
+    for client in clients:
+        if getClientName(client) == receiver:
+            client.send(f"PRIVATE:{sender}:{receiver}:{message}/n".encode(FORMAT))
+            break
 
 def broadcastMessage(message):
     for client in clients:
