@@ -7,7 +7,7 @@ from tkinter import ttk
 from tkinter import messagebox
  
 PORT = 5000
-SERVER = "10.26.41.189"
+SERVER = "192.168.1.13"
 ADDRESS = (SERVER, PORT)
 FORMAT = "utf-8"
  
@@ -91,6 +91,7 @@ class GUI:
         self.Window.protocol("WM_DELETE_WINDOW", self.on_closing)
     
     def loginUser(self,name,username, password):
+        self.username = username
         message = f"LOGIN:{name}:{username}:{password}"
         client.send(message.encode(FORMAT))
         response = client.recv(1024).decode(FORMAT)
@@ -275,8 +276,9 @@ class GUI:
         
 
     def searchUser(self):
+        my_username = self.username
         search_username = self.searchEntry.get()
-        message = f"SEARCH:{search_username}"
+        message = f"SEARCH:{my_username}:{search_username}"
         client.send(message.encode(FORMAT)) 
 
     def sendImage(self):
@@ -320,6 +322,8 @@ class GUI:
                     elif message.startswith("found successfully"):
                         print("添加成功")
                         messagebox.showinfo("Info", f"User found and added to your friends list")
+                    elif message.startswith("Already"):
+                        messagebox.showinfo("Info", "Already friend")
                     else:
                         # insert messages to text box
                         self.textCons.config(state=NORMAL)

@@ -18,11 +18,25 @@ server.bind(ADDRESS)
 # 创建用户数据库
 db_conn = sqlite3.connect('chatapp.db', check_same_thread=False)
 cursor = db_conn.cursor()
+
+#刷新数据库
+cursor.execute("DROP TABLE IF EXISTS users")
+cursor.execute("DROP TABLE IF EXISTS friends")
+
 cursor.execute('''CREATE TABLE IF NOT EXISTS users
              (
               name TEXT NOT NULL,
               username TEXT PRIMARY KEY NOT NULL,
               password TEXT NOT NULL
+              )''')
+db_conn.commit()
+
+# 创建好友关系数据库
+cursor.execute('''CREATE TABLE IF NOT EXISTS friends
+             (
+              user1 TEXT NOT NULL,
+              user2 TEXT NOT NULL,
+              PRIMARY KEY (user1, user2)
               )''')
 db_conn.commit()
 
@@ -100,12 +114,21 @@ def handle_login(conn, message):
 
 # 搜索处理
 def handle_search(conn, message):
-    username = message.split(":")[1]
-    cursor.execute("SELECT * FROM users WHERE username=?", (username,))
+    my_username, search_username = message.split(":")[1], message.split(":")[2]
+    cursor.execute("SELECT * FROM users WHERE username=?", (search_username,))
     if cursor.fetchone():
-        conn.send(f"found successfully".encode(FORMAT)+b"/n")
+        # 检查是否已经是好友
+        cursor.execute("SELECT * FROM friends WHERE user1=? AND user2=? OR user1=? AND user2=?", 
+                       (my_username, search_username, search_username, my_username))
+        if cursor.fetchone():
+            conn.send("Already friends".encode(FORMAT) + b"/n")
+        else:
+            # 添加好友关系
+            cursor.execute("INSERT INTO friends (user1, user2) VALUES (?, ?)", (my_username, search_username))
+            db_conn.commit()
+            conn.send(f"found successfully".encode(FORMAT) + b"/n")
     else:
-        conn.send("User not found".encode(FORMAT)+b"/n")
+        conn.send("User not found".encode(FORMAT) + b"/n")
 
 def broadcastMessage(message):
     for client in clients:
