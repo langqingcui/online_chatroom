@@ -1,10 +1,12 @@
 # import all the required  modules
 import socket
 import threading
+import base64
 from tkinter import *
 from tkinter import font
 from tkinter import ttk
-from tkinter import messagebox
+from tkinter import messagebox, filedialog
+from PIL import Image, ImageTk
  
 PORT = 5000
 SERVER = "120.46.87.122"
@@ -227,8 +229,21 @@ class GUI:
                             relx=0.70)
 
     def sendImage(self):
-        # Implement the logic to handle sending images
-        pass
+        file_path = filedialog.askopenfilename()  # 打开文件对话框选择图片
+        if file_path:
+            with open(file_path, "rb") as image_file:
+                encoded_string = base64.b64encode(image_file.read()).decode("utf-8")
+                message = f"IMAGE:{encoded_string}"
+                self.imsg = message
+                sndi = threading.Thread(target=self.sendiMessage)
+                sndi.start()
+    
+    def sendiMessage(self):
+        self.textCons.config(state=DISABLED)
+        while True:
+            message = (f"{self.name}: {self.imsg}")
+            client.send(message.encode(FORMAT))
+            break
 
     def sendEmoji(self):
         # Implement the logic to handle sending emojis
@@ -253,8 +268,10 @@ class GUI:
  
                 # if the messages from the server is NAME send the client's name
                 if message == 'NAME':
+                    print("Name received")
                     client.send(self.name.encode(FORMAT))
                 elif message.startswith('USER_LIST:'):
+                    print("Received user list")
                     # update the online users list
                     users = message.split(':')[1].split(',')
                     self.onlineUsers.delete(0, END)
@@ -262,7 +279,21 @@ class GUI:
                         self.onlineUsers.insert(END, user)
                     user_count = len(users)
                     self.userOnlineLabel.config(text=f"User Online: {user_count}")
+                elif message.startswith('IMAGE'):
+                    print("Received image")
+                    encoded_image = message[6:]
+                    image_data = base64.b64decode(encoded_image)
+                    image = Image.open(io.BytesIO(image_data))
+                    photo = ImageTk.PhotoImage(image)
+
+                    # 在Text控件中显示图片
+                    self.textCons.config(state=NORMAL)
+                    self.textCons.image_create(END, image=photo)  # 插入图片
+                    self.textCons.insert(END, '\n\n')  # 在图片后添加空行
+                    self.textCons.config(state=DISABLED)
+                    self.textCons.see(END)
                 else:
+                    print("Received message")
                     # insert messages to text box
                     self.textCons.config(state=NORMAL)
                     self.textCons.insert(END, message+"\n\n")
