@@ -1,13 +1,15 @@
-# import all the required  modules
+# import all the required modules
 import socket
 import threading
+import base64
 from tkinter import *
 from tkinter import font
 from tkinter import ttk
-from tkinter import messagebox
+from tkinter import messagebox, filedialog
+from PIL import Image, ImageTk
  
 PORT = 5000
-SERVER = "192.168.1.13"
+SERVER = "10.26.41.189"
 ADDRESS = (SERVER, PORT)
 FORMAT = "utf-8"
  
@@ -22,11 +24,13 @@ client.connect(ADDRESS)
 class GUI:
     # constructor method
     def __init__(self):
- 
         # chat window which is currently hidden
         self.Window = Tk()
         self.Window.withdraw()
         self.Window.protocol("WM_DELETE_WINDOW", self.on_closing)
+        
+        self.private_chats = {}
+        self.message_queues = {}
  
         # login window
         self.login = Toplevel()
@@ -134,7 +138,7 @@ class GUI:
         self.Window.title("CHATROOM")
         self.Window.resizable(width=False,
                             height=False)
-        self.Window.configure(width=700,
+        self.Window.configure(width=500,
                             height=550,
                             bg="#17202A")
         self.labelHead = Label(self.Window,
@@ -270,9 +274,34 @@ class GUI:
                                 fg="#EAECEE",
                                 font="Helvetica 12")
         self.onlineUsers.place(relwidth=0.3,
-                            relheight=0.64,
+                            relheight=0.31,
                             rely=0.13,
                             relx=0.70)
+        
+        #create a label to display all the friends
+        self.myFriendLabel = Label(self.Window,
+                                    bg="#17202A",
+                                    fg="#EAECEE",
+                                    font="Helvetica 12",
+                                    text="my friend")  
+        self.myFriendLabel.place(relwidth=0.3,
+                                relheight=0.05,
+                                rely=0.44,
+                                relx=0.70)
+        
+        # create a listbox to display online users
+        self.myFriend = Listbox(self.Window,
+                                bg="#17202A",
+                                fg="#EAECEE",
+                                font="Helvetica 12")
+        self.myFriend.place(relwidth=0.3,
+                            relheight=0.28,
+                            rely=0.49,
+                            relx=0.70)
+        
+
+        # Bind double-click event to Listbox
+        self.onlineUsers.bind("<Double-1>", self.open_private_chat)
         
 
     def searchUser(self):
@@ -280,10 +309,38 @@ class GUI:
         search_username = self.searchEntry.get()
         message = f"SEARCH:{my_username}:{search_username}"
         client.send(message.encode(FORMAT)) 
+        
+    
+    def open_private_chat(self, event):
+        selected_user = self.onlineUsers.get(self.onlineUsers.curselection())
+        if selected_user == self.name:
+            messagebox.showwarning("Private Chat Error", "You cannot begin a private chat with yourself.")
+            return
+        if selected_user not in self.private_chats:
+            self.private_chats[selected_user] = PrivateChatWindow(self, selected_user)
+            self.private_chats[selected_user].window.lift()
+            if selected_user in self.message_queues:
+                for msg in self.message_queues[selected_user]:
+                    self.private_chats[selected_user].receiveMessage(msg)
+                del self.message_queues[selected_user]
+        self.private_chats[selected_user].focus()
 
     def sendImage(self):
-        # Implement the logic to handle sending images
-        pass
+        file_path = filedialog.askopenfilename()  # 打开文件对话框选择图片
+        if file_path:
+            with open(file_path, "rb") as image_file:
+                encoded_string = base64.b64encode(image_file.read()).decode("utf-8")
+                message = f"IMAGE:{encoded_string}"
+                self.imsg = message
+                sndi = threading.Thread(target=self.sendiMessage)
+                sndi.start()
+    
+    def sendiMessage(self):
+        self.textCons.config(state=DISABLED)
+        while True:
+            message = (f"{self.name}: {self.imsg}")
+            client.send(message.encode(FORMAT))
+            break
 
     def sendEmoji(self):
         # Implement the logic to handle sending emojis
@@ -305,11 +362,11 @@ class GUI:
         buffer = ""
         while True:
             try:
-                # if the messages from the server is NAME send the client's name
                 buffer += client.recv(1024).decode(FORMAT)
                 while "/n" in buffer:
                     message, buffer = buffer.split("/n", 1)
                     if message.startswith("USER_LIST:"):
+                        print("Received user list")
                         # update the online users list
                         users = message.split(':')[1].split(',')
                         self.onlineUsers.delete(0, END)
@@ -317,6 +374,12 @@ class GUI:
                             self.onlineUsers.insert(END, user)
                         user_count = len(users)
                         self.userOnlineLabel.config(text=f"User Online: {user_count}")
+                    elif message.startswith("FRIEND_LIST:"):
+                        print("Received friend list")
+                        friends = message.split(':')[1].split(',')
+                        self.myFriend.delete(0, END)
+                        for friend in friends:
+                            self.myFriend.insert(END, friend)
                     elif message == "User not found":
                         messagebox.showinfo("Info", "User not found")
                     elif message.startswith("found successfully"):
@@ -324,13 +387,28 @@ class GUI:
                         messagebox.showinfo("Info", f"User found and added to your friends list")
                     elif message.startswith("Already"):
                         messagebox.showinfo("Info", "Already friend")
+                    
+                    elif message.startswith('PRIVATE'):
+                        sender, receiver, msg = message.split(':')[1:]
+                        if receiver == self.name:
+                            if sender in self.private_chats:
+                                self.private_chats[sender].receiveMessage(f"{sender}: {msg}")
+                            else:
+                                if sender not in self.message_queues:
+                                    self.message_queues[sender] = []
+                                self.message_queues[sender].append(f"{sender}: {msg}")
                     else:
-                        # insert messages to text box
+                        print("Received message")
+                            # insert messages to text box
                         self.textCons.config(state=NORMAL)
                         self.textCons.insert(END, message+"\n\n")
                         self.textCons.config(state=DISABLED)
                         self.textCons.see(END)
                     
+            except (ConnectionResetError, ConnectionAbortedError):
+                print(self.name + " connection closed")
+                client.close()
+                break
             except:
                 # an error will be printed on the command line or console if there's an error
                 print("An error occurred!")
@@ -345,6 +423,61 @@ class GUI:
             client.send(message.encode(FORMAT))
             break
  
+class PrivateChatWindow:
+    def __init__(self, parent, user):
+        self.parent = parent
+        self.user = user
+        
+        self.window = Toplevel()
+        self.window.title(f"Private Chat with {user}")
+        self.window.geometry("400x400")
+        
+        self.window.protocol("WM_DELETE_WINDOW", self.on_closing)
+
+        self.textCons = Text(self.window, bg="#17202A", fg="#EAECEE", font="Helvetica 14", padx=5, pady=5)
+        self.textCons.place(relheight=0.8, relwidth=1, relx=0, rely=0)
+        self.textCons.config(state=DISABLED)
+
+        self.entryMsg = Entry(self.window, bg="#2C3E50", fg="#EAECEE", font="Helvetica 13")
+        self.entryMsg.place(relwidth=0.74, relheight=0.06, relx=0.011, rely=0.82)
+        self.entryMsg.focus()
+        self.entryMsg.bind("<Return>", lambda event: self.sendButton(self.entryMsg.get()))
+        
+        self.buttonMsg = Button(self.window, text="Send", font="Helvetica 10 bold", width=20, bg="#ABB2B9",
+                                command=lambda: self.sendButton(self.entryMsg.get()))
+        self.buttonMsg.place(relx=0.77, rely=0.82, relheight=0.06, relwidth=0.22)
+
+        self.msg_queue = []
+        
+    def on_closing(self):
+        del self.parent.private_chats[self.user]
+        self.window.destroy()
+
+    def sendButton(self, msg):
+        if msg.strip():
+            self.textCons.config(state=DISABLED)
+            self.msg = msg
+            self.entryMsg.delete(0, END)
+            snd = threading.Thread(target=self.sendMessage)
+            snd.start()
+        else:
+            messagebox.showwarning("Warning", "Empty message cannot be sent")
+
+    def sendMessage(self):
+        message = f"PRIVATE:{self.parent.name}:{self.user}:{self.msg}"
+        client.send(message.encode(FORMAT))
+        self.receiveMessage(f"{self.parent.name}: {self.msg}")
+
+    def receiveMessage(self, msg):
+        self.textCons.config(state=NORMAL)
+        self.textCons.insert(END, msg + "\n\n")
+        self.textCons.config(state=DISABLED)
+        self.textCons.see(END)
+    
+    def focus(self):
+        self.window.deiconify()
+        self.window.lift()
+        self.window.focus_force()
  
 # create a GUI class object
 g = GUI()

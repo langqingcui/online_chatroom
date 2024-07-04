@@ -15,13 +15,13 @@ running = True  # Global flag to control server shutdown
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 server.bind(ADDRESS)
 
-# 创建用户数据库
+# create user database
 db_conn = sqlite3.connect('chatapp.db', check_same_thread=False)
 cursor = db_conn.cursor()
 
-#刷新数据库
-cursor.execute("DROP TABLE IF EXISTS users")
-cursor.execute("DROP TABLE IF EXISTS friends")
+#refresh the data base
+#cursor.execute("DROP TABLE IF EXISTS users")
+#cursor.execute("DROP TABLE IF EXISTS friends")
 
 cursor.execute('''CREATE TABLE IF NOT EXISTS users
              (
@@ -31,7 +31,7 @@ cursor.execute('''CREATE TABLE IF NOT EXISTS users
               )''')
 db_conn.commit()
 
-# 创建好友关系数据库
+# create friend database
 cursor.execute('''CREATE TABLE IF NOT EXISTS friends
              (
               user1 TEXT NOT NULL,
@@ -74,8 +74,14 @@ def handle(conn, addr):
                 handle_login(conn, message)
             elif message.startswith("SEARCH"):
                 handle_search(conn, message)
+            elif message.startswith("FRIEND_LIST"):
+                handle_friend_list(conn, message)
             else:
                 broadcastMessage(message.encode(FORMAT))
+        except ConnectionResetError:
+            print(f"Connection reset by peer {addr}")
+            connected = False
+            break
         except Exception as e:
             print(f"Error: {e}")
             break
@@ -87,7 +93,6 @@ def handle(conn, addr):
 
 # 注册处理
 def handle_register(conn, message):
-    
     name, username, password = message.split(":")[1], message.split(":")[2],message.split(":")[3]
 
     cursor.execute("SELECT * FROM users WHERE username=?", (username,))
@@ -98,7 +103,7 @@ def handle_register(conn, message):
         db_conn.commit()
         conn.send("Registration successful".encode(FORMAT))
 
-#登录处理
+# 登录处理
 def handle_login(conn, message):
     name, username, password = message.split(":")[1], message.split(":")[2],message.split(":")[3]
    
@@ -108,7 +113,10 @@ def handle_login(conn, message):
         clients.append(conn)
         names.append(name)
         broadcastUserList()
-        broadcastMessage(f"{name} has joined the chat!".encode(FORMAT))  
+        broadcastMessage(f"{name} has joined the chat!".encode(FORMAT))
+        # 发送好友列表
+        friend_list_message = create_friend_list_message(username)
+        conn.send(friend_list_message.encode(FORMAT))
     else:
         conn.send("Login failed".encode(FORMAT))
 
@@ -127,21 +135,47 @@ def handle_search(conn, message):
             cursor.execute("INSERT INTO friends (user1, user2) VALUES (?, ?)", (my_username, search_username))
             db_conn.commit()
             conn.send(f"found successfully".encode(FORMAT) + b"/n")
+            
+            # 更新双方的好友列表
+            for client in clients:
+                username = getClientUsername(client)
+                if username == my_username or username == search_username:
+                    friend_list_message = create_friend_list_message(username)
+                    client.send(friend_list_message.encode(FORMAT))
     else:
         conn.send("User not found".encode(FORMAT) + b"/n")
+
+# 处理好友列表请求
+def handle_friend_list(conn, message):
+    my_username = message.split(":")[1]
+    friend_list_message = create_friend_list_message(my_username)
+    conn.send(friend_list_message.encode(FORMAT))
 
 def broadcastMessage(message):
     for client in clients:
         client.send(message+b"/n")
-        
 
 def broadcastUserList():
     user_list_message = "USER_LIST:" + ",".join(names)  + "/n"
     for client in clients:
         client.send(user_list_message.encode(FORMAT))
-        
+
+def create_friend_list_message(username):
+    cursor.execute("SELECT user1, user2 FROM friends WHERE user1=? OR user2=?", (username, username))
+    friends = cursor.fetchall()
+    friend_list = []
+    for user1, user2 in friends:
+        if user1 == username:
+            friend_list.append(user2)
+        else:
+            friend_list.append(user1)
+    return "FRIEND_LIST:" + ",".join(friend_list) + "/n"
 
 def getClientName(client):
+    index = clients.index(client)
+    return names[index]
+
+def getClientUsername(client):
     index = clients.index(client)
     return names[index]
 
