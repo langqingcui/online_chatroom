@@ -9,7 +9,8 @@ SERVER = "0.0.0.0"
 ADDRESS = (SERVER, PORT)
 FORMAT = "utf-8"
 
-clients, names = [], []
+clients = []
+user_dict = {}  # key: username, value: name
 running = True  # Global flag to control server shutdown
 
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -83,7 +84,9 @@ def handle(conn, addr):
             print(f"Error: {e}")
             break
     if conn in clients:
-        names.remove(getClientName(conn))
+        username = getClientUsername(conn)
+        if username:
+            del user_dict[username]
         clients.remove(conn)
         broadcastUserList()
         conn.close()
@@ -108,7 +111,7 @@ def handle_login(conn, message):
     if cursor.fetchone():
         conn.send("Login successful".encode(FORMAT))
         clients.append(conn)
-        names.append(name)
+        user_dict[username] = name
         broadcastUserList()
         broadcastMessage(f"{name} has joined the chat!".encode(FORMAT))  
     else:
@@ -127,7 +130,7 @@ def handle_private_message(conn, message):
     cursor.execute("INSERT INTO private_messages (sender, receiver, message) VALUES (?,?,?)", (sender, receiver, message))
     db_conn.commit()
     for client in clients:
-        if getClientName(client) == receiver:
+        if getClientUsername(client) == receiver:
             client.send(f"PRIVATE:{sender}:{receiver}:{message}/n".encode(FORMAT))
             break
 
@@ -137,14 +140,13 @@ def broadcastMessage(message):
         
 
 def broadcastUserList():
-    user_list_message = "USER_LIST:" + ",".join(names)  + "/n"
+    user_list_message = "USER_LIST:" + ",".join([f"{username}/{name}" for username, name in user_dict.items()]) + "/n"
     for client in clients:
         client.send(user_list_message.encode(FORMAT))
         
-
-def getClientName(client):
+def getClientUsername(client):
     index = clients.index(client)
-    return names[index]
+    return list(user_dict.keys())[index]
 
 def control_server():
     global running
