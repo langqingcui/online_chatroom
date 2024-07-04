@@ -200,9 +200,14 @@ def create_friend_list_message(username):
     friend_list = []
     for user1, user2 in friends:
         if user1 == username:
-            friend_list.append(user2)
+            friend_username = user2
         else:
-            friend_list.append(user1)
+            friend_username = user1
+        
+        # 获取朋友的姓名
+        cursor.execute("SELECT name FROM users WHERE username=?", (friend_username,))
+        friend_name = cursor.fetchone()[0]
+        friend_list.append(f"{friend_name}({friend_username})")
     return "FRIEND_LIST:" + ",".join(friend_list) + "/n"
 
 def getClientUsername(client):

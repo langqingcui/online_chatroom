@@ -9,7 +9,7 @@ from tkinter import messagebox, filedialog
 from PIL import Image, ImageTk
  
 PORT = 5000
-SERVER = "10.26.41.189"
+SERVER = "172.20.10.3"
 ADDRESS = (SERVER, PORT)
 FORMAT = "utf-8"
  
@@ -83,7 +83,11 @@ class GUI:
         self.Window.destroy()
         exit(0)
  
-    
+    def get_name(self, username):
+        for user in self.user_list:
+            if user[0] == username:
+                return user[1]
+        return username
     
     def loginUser(self,name,username, password):
         self.username = username
@@ -293,7 +297,7 @@ class GUI:
         
 
         # Bind double-click event to Listbox
-        self.onlineUsers.bind("<Double-1>", self.open_private_chat)
+        self.myFriend.bind("<Double-1>", self.open_private_chat)
         
 
     def searchUser(self):
@@ -304,8 +308,8 @@ class GUI:
         
     
     def open_private_chat(self, event):
-        selected_index = self.onlineUsers.curselection()[0]
-        selected_user = self.onlineUsers.get(selected_index)
+        selected_index = self.myFriend.curselection()[0]
+        selected_user = self.myFriend.get(selected_index)
         selected_username = selected_user.split('(')[1][:-1]
         selected_name = selected_user.split('(')[0]
         if selected_username == self.username:
@@ -372,17 +376,16 @@ class GUI:
                         messagebox.showinfo("Info", f"User found and added to your friends list")
                     elif message.startswith("Already"):
                         messagebox.showinfo("Info", "Already friend")
-                    
                     elif message.startswith('PRIVATE'):
                         print(message)
                         sender, receiver, msg = message.split(':')[1:]
                         if receiver == self.username:
                             if sender in self.private_chats:
-                                self.private_chats[sender].receiveMessage(f"{sender}: {msg}")
+                                self.private_chats[sender].receiveMessage(f"{self.get_name(sender)}: {msg}")
                             else:
                                 if sender not in self.message_queues:
                                     self.message_queues[sender] = []
-                                self.message_queues[sender].append(f"{sender}: {msg}")
+                                self.message_queues[sender].append(f"{self.get_name(sender)}: {msg}")
                     elif message.startswith("LOAD_CHAT_HISTORY:"):
                         parts = message.split(':', -1)
                         if len(parts) == 5:
@@ -397,12 +400,11 @@ class GUI:
                                         self.private_chats[receiver].receiveMessage(msg)
                     else:
                         print("Received message")
-                            # insert messages to text box
+                        # insert messages to text box
                         self.textCons.config(state=NORMAL)
-                        self.textCons.insert(END, message+"\n\n")
+                        self.textCons.insert(END, message + "\n\n")
                         self.textCons.config(state=DISABLED)
                         self.textCons.see(END)
-                    
             except (ConnectionResetError, ConnectionAbortedError):
                 print(self.name + " connection closed")
                 client.close()
@@ -411,6 +413,7 @@ class GUI:
                 print(f"An error occurred: {e}")
                 client.close()
                 break
+
  
     # function to send messages
     def sendMessage(self):
