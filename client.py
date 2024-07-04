@@ -1,4 +1,4 @@
-# import all the required  modules
+# import all the required modules
 import socket
 import threading
 import base64
@@ -9,7 +9,7 @@ from tkinter import messagebox, filedialog
 from PIL import Image, ImageTk
  
 PORT = 5000
-SERVER = "172.20.10.3"
+SERVER = "10.26.41.189"
 ADDRESS = (SERVER, PORT)
 FORMAT = "utf-8"
  
@@ -18,7 +18,6 @@ FORMAT = "utf-8"
 client = socket.socket(socket.AF_INET,
                        socket.SOCK_STREAM)
 client.connect(ADDRESS)
- 
  
 # GUI class for the chat
 class GUI:
@@ -84,18 +83,10 @@ class GUI:
         self.Window.destroy()
         exit(0)
  
-    def goAhead(self, name):
-        self.login.destroy()
-        self.layout(name, username)
- 
-        # the thread to receive messages
-        rcv = threading.Thread(target=self.receive)
-        rcv.start()
- 
-        # add protocol to close the window and exit
-        self.Window.protocol("WM_DELETE_WINDOW", self.on_closing)
+    
     
     def loginUser(self,name,username, password):
+        self.username = username
         message = f"LOGIN:{name}:{username}:{password}"
         client.send(message.encode(FORMAT))
         response = client.recv(1024).decode(FORMAT)
@@ -201,6 +192,21 @@ class GUI:
                             command=self.sendEmoji)
         self.btnEmoji.pack(side=LEFT, padx=5)
 
+        # Add the search entry
+        self.searchEntry = Entry(self.buttonFrame,
+                                 bg="#2C3E50",
+                                 fg="#EAECEE",
+                                 font="Helvetica 13")
+        self.searchEntry.pack(side=LEFT, padx=5)
+
+        # Add the search button
+        self.searchButton = Button(self.buttonFrame,
+                                   text="Add",
+                                   font="Helvetica 10 bold",
+                                   bg="#ABB2B9",
+                                   command=self.searchUser)
+        self.searchButton.pack(side=LEFT, padx=5)
+
         self.entryMsg = Entry(self.labelBottom,
                             bg="#2C3E50",
                             fg="#EAECEE",
@@ -260,11 +266,42 @@ class GUI:
                                 fg="#EAECEE",
                                 font="Helvetica 12")
         self.onlineUsers.place(relwidth=0.3,
-                            relheight=0.64,
+                            relheight=0.31,
                             rely=0.13,
                             relx=0.70)
+        
+        #create a label to display all the friends
+        self.myFriendLabel = Label(self.Window,
+                                    bg="#17202A",
+                                    fg="#EAECEE",
+                                    font="Helvetica 12",
+                                    text="my friend")  
+        self.myFriendLabel.place(relwidth=0.3,
+                                relheight=0.05,
+                                rely=0.44,
+                                relx=0.70)
+        
+        # create a listbox to display online users
+        self.myFriend = Listbox(self.Window,
+                                bg="#17202A",
+                                fg="#EAECEE",
+                                font="Helvetica 12")
+        self.myFriend.place(relwidth=0.3,
+                            relheight=0.28,
+                            rely=0.49,
+                            relx=0.70)
+        
+
         # Bind double-click event to Listbox
         self.onlineUsers.bind("<Double-1>", self.open_private_chat)
+        
+
+    def searchUser(self):
+        my_username = self.username
+        search_username = self.searchEntry.get()
+        message = f"SEARCH:{my_username}:{search_username}"
+        client.send(message.encode(FORMAT)) 
+        
     
     def open_private_chat(self, event):
         selected_index = self.onlineUsers.curselection()[0]
@@ -309,7 +346,6 @@ class GUI:
                 buffer += client.recv(1024).decode(FORMAT)
                 while "/n" in buffer:
                     message, buffer = buffer.split("/n", 1)
-                    
                     if message.startswith("USER_LIST:"):
                         print("Received user list")
                         # update the online users list
@@ -323,6 +359,20 @@ class GUI:
                             self.userOnlineLabel.config(text=f"User Online: {user_count}")
                         except IndexError:
                             print("Error parsing user list")
+                    elif message.startswith("FRIEND_LIST:"):
+                        print("Received friend list")
+                        friends = message.split(':')[1].split(',')
+                        self.myFriend.delete(0, END)
+                        for friend in friends:
+                            self.myFriend.insert(END, friend)
+                    elif message == "User not found":
+                        messagebox.showinfo("Info", "User not found")
+                    elif message.startswith("found successfully"):
+                        print("添加成功")
+                        messagebox.showinfo("Info", f"User found and added to your friends list")
+                    elif message.startswith("Already"):
+                        messagebox.showinfo("Info", "Already friend")
+                    
                     elif message.startswith('PRIVATE'):
                         print(message)
                         sender, receiver, msg = message.split(':')[1:]
@@ -352,6 +402,7 @@ class GUI:
                         self.textCons.insert(END, message+"\n\n")
                         self.textCons.config(state=DISABLED)
                         self.textCons.see(END)
+                    
             except (ConnectionResetError, ConnectionAbortedError):
                 print(self.name + " connection closed")
                 client.close()

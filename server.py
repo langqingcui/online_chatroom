@@ -16,9 +16,14 @@ running = True  # Global flag to control server shutdown
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 server.bind(ADDRESS)
 
-# 创建用户数据库
+# create user database
 db_conn = sqlite3.connect('chatapp.db', check_same_thread=False)
 cursor = db_conn.cursor()
+
+#refresh the data base
+#cursor.execute("DROP TABLE IF EXISTS users")
+#cursor.execute("DROP TABLE IF EXISTS friends")
+
 cursor.execute('''CREATE TABLE IF NOT EXISTS users
              (
               name TEXT NOT NULL,
@@ -37,6 +42,15 @@ cursor.execute('''CREATE TABLE IF NOT EXISTS private_messages
               )''')
 db_conn.commit()
 
+# create friend database
+cursor.execute('''CREATE TABLE IF NOT EXISTS friends
+             (
+              user1 TEXT NOT NULL,
+              user2 TEXT NOT NULL,
+              PRIMARY KEY (user1, user2)
+              )''')
+db_conn.commit()
+
 def startChat():
     global running
     print("Server is working on " + SERVER)
@@ -45,7 +59,6 @@ def startChat():
     while running:
         try:
             conn, addr = server.accept()
-            
             # Start a new thread to handle this connection
             thread = threading.Thread(target=handle, args=(conn, addr))
             thread.start()
@@ -74,6 +87,10 @@ def handle(conn, addr):
                 handle_load_chat_history(conn, message)
             elif message.startswith("PRIVATE"):
                 handle_private_message(conn, message)
+            elif message.startswith("SEARCH"):
+                handle_search(conn, message)
+            elif message.startswith("FRIEND_LIST"):
+                handle_friend_list(conn, message)
             else:
                 broadcastMessage(message.encode(FORMAT))
         except ConnectionResetError:
@@ -113,7 +130,10 @@ def handle_login(conn, message):
         clients.append(conn)
         user_dict[username] = name
         broadcastUserList()
-        broadcastMessage(f"{name} has joined the chat!".encode(FORMAT))  
+        broadcastMessage(f"{name} has joined the chat!".encode(FORMAT))
+        # 发送好友列表
+        friend_list_message = create_friend_list_message(username)
+        conn.send(friend_list_message.encode(FORMAT))
     else:
         conn.send("Login failed".encode(FORMAT))
 
@@ -134,16 +154,57 @@ def handle_private_message(conn, message):
             client.send(f"PRIVATE:{sender}:{receiver}:{message}/n".encode(FORMAT))
             break
 
+# 搜索处理
+def handle_search(conn, message):
+    my_username, search_username = message.split(":")[1], message.split(":")[2]
+    cursor.execute("SELECT * FROM users WHERE username=?", (search_username,))
+    if cursor.fetchone():
+        # 检查是否已经是好友
+        cursor.execute("SELECT * FROM friends WHERE user1=? AND user2=? OR user1=? AND user2=?", 
+                       (my_username, search_username, search_username, my_username))
+        if cursor.fetchone():
+            conn.send("Already friends".encode(FORMAT) + b"/n")
+        else:
+            # 添加好友关系
+            cursor.execute("INSERT INTO friends (user1, user2) VALUES (?, ?)", (my_username, search_username))
+            db_conn.commit()
+            conn.send(f"found successfully".encode(FORMAT) + b"/n")
+            
+            # 更新双方的好友列表
+            for client in clients:
+                username = getClientUsername(client)
+                if username == my_username or username == search_username:
+                    friend_list_message = create_friend_list_message(username)
+                    client.send(friend_list_message.encode(FORMAT))
+    else:
+        conn.send("User not found".encode(FORMAT) + b"/n")
+
+# 处理好友列表请求
+def handle_friend_list(conn, message):
+    my_username = message.split(":")[1]
+    friend_list_message = create_friend_list_message(my_username)
+    conn.send(friend_list_message.encode(FORMAT))
+
 def broadcastMessage(message):
     for client in clients:
         client.send(message+b"/n")
-        
 
 def broadcastUserList():
     user_list_message = "USER_LIST:" + ",".join([f"{username}/{name}" for username, name in user_dict.items()]) + "/n"
     for client in clients:
         client.send(user_list_message.encode(FORMAT))
-        
+
+def create_friend_list_message(username):
+    cursor.execute("SELECT user1, user2 FROM friends WHERE user1=? OR user2=?", (username, username))
+    friends = cursor.fetchall()
+    friend_list = []
+    for user1, user2 in friends:
+        if user1 == username:
+            friend_list.append(user2)
+        else:
+            friend_list.append(user1)
+    return "FRIEND_LIST:" + ",".join(friend_list) + "/n"
+
 def getClientUsername(client):
     index = clients.index(client)
     return list(user_dict.keys())[index]
