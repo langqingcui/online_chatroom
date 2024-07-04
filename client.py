@@ -137,7 +137,7 @@ class GUI:
         self.Window.title("CHATROOM")
         self.Window.resizable(width=False,
                             height=False)
-        self.Window.configure(width=700,
+        self.Window.configure(width=500,
                             height=550,
                             bg="#17202A")
         self.labelHead = Label(self.Window,
@@ -383,6 +383,8 @@ class PrivateChatWindow:
         self.window = Toplevel()
         self.window.title(f"Private Chat with {user}")
         self.window.geometry("400x400")
+        
+        self.window.protocol("WM_DELETE_WINDOW", self.on_closing)
 
         self.textCons = Text(self.window, bg="#17202A", fg="#EAECEE", font="Helvetica 14", padx=5, pady=5)
         self.textCons.place(relheight=0.8, relwidth=1, relx=0, rely=0)
@@ -397,6 +399,10 @@ class PrivateChatWindow:
         self.buttonMsg.place(relx=0.77, rely=0.82, relheight=0.06, relwidth=0.22)
 
         self.msg_queue = []
+        
+    def on_closing(self):
+        del self.parent.private_chats[self.user]
+        self.window.destroy()
 
     def sendButton(self, msg):
         if msg.strip():
