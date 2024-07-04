@@ -61,6 +61,10 @@ def handle(conn, addr):
                 handle_login(conn, message)
             else:
                 broadcastMessage(message.encode(FORMAT))
+        except ConnectionResetError:
+            print(f"Connection reset by peer {addr}")
+            connected = False
+            break
         except Exception as e:
             print(f"Error: {e}")
             break
@@ -72,7 +76,6 @@ def handle(conn, addr):
 
 # 注册处理
 def handle_register(conn, message):
-    
     name, username, password = message.split(":")[1], message.split(":")[2],message.split(":")[3]
 
     cursor.execute("SELECT * FROM users WHERE username=?", (username,))
@@ -83,7 +86,7 @@ def handle_register(conn, message):
         db_conn.commit()
         conn.send("Registration successful".encode(FORMAT))
 
-#登录处理
+# 登录处理
 def handle_login(conn, message):
     name, username, password = message.split(":")[1], message.split(":")[2],message.split(":")[3]
    

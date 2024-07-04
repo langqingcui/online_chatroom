@@ -9,7 +9,7 @@ from tkinter import messagebox, filedialog
 from PIL import Image, ImageTk
  
 PORT = 5000
-SERVER = "10.26.41.189"
+SERVER = "120.46.87.122"
 ADDRESS = (SERVER, PORT)
 FORMAT = "utf-8"
  
@@ -24,7 +24,6 @@ client.connect(ADDRESS)
 class GUI:
     # constructor method
     def __init__(self):
- 
         # chat window which is currently hidden
         self.Window = Tk()
         self.Window.withdraw()
@@ -297,9 +296,6 @@ class GUI:
         buffer = ""
         while True:
             try:
-                # if the messages from the server is NAME send the client's name
-                
-                print("Name received")
                 buffer += client.recv(1024).decode(FORMAT)
                 while "/n" in buffer:
                     message, buffer = buffer.split("/n", 1)
