@@ -34,7 +34,6 @@ def startChat():
     while running:
         try:
             conn, addr = server.accept()
-            
             # Start a new thread to handle this connection
             thread = threading.Thread(target=handle, args=(conn, addr))
             thread.start()
@@ -59,6 +58,8 @@ def handle(conn, addr):
                 handle_register(conn, message)
             elif message.startswith("LOGIN"):
                 handle_login(conn, message)
+            elif message.startswith("SEARCH"):
+                handle_search(conn, message)
             else:
                 broadcastMessage(message.encode(FORMAT))
         except Exception as e:
@@ -96,6 +97,15 @@ def handle_login(conn, message):
         broadcastMessage(f"{name} has joined the chat!".encode(FORMAT))  
     else:
         conn.send("Login failed".encode(FORMAT))
+
+# 搜索处理
+def handle_search(conn, message):
+    username = message.split(":")[1]
+    cursor.execute("SELECT * FROM users WHERE username=?", (username,))
+    if cursor.fetchone():
+        conn.send(f"found successfully".encode(FORMAT)+b"/n")
+    else:
+        conn.send("User not found".encode(FORMAT)+b"/n")
 
 def broadcastMessage(message):
     for client in clients:

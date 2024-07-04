@@ -195,6 +195,21 @@ class GUI:
                             command=self.sendEmoji)
         self.btnEmoji.pack(side=LEFT, padx=5)
 
+        # Add the search entry
+        self.searchEntry = Entry(self.buttonFrame,
+                                 bg="#2C3E50",
+                                 fg="#EAECEE",
+                                 font="Helvetica 13")
+        self.searchEntry.pack(side=LEFT, padx=5)
+
+        # Add the search button
+        self.searchButton = Button(self.buttonFrame,
+                                   text="Add",
+                                   font="Helvetica 10 bold",
+                                   bg="#ABB2B9",
+                                   command=self.searchUser)
+        self.searchButton.pack(side=LEFT, padx=5)
+
         self.entryMsg = Entry(self.labelBottom,
                             bg="#2C3E50",
                             fg="#EAECEE",
@@ -257,6 +272,12 @@ class GUI:
                             relheight=0.64,
                             rely=0.13,
                             relx=0.70)
+        
+
+    def searchUser(self):
+        search_username = self.searchEntry.get()
+        message = f"SEARCH:{search_username}"
+        client.send(message.encode(FORMAT)) 
 
     def sendImage(self):
         # Implement the logic to handle sending images
@@ -282,15 +303,10 @@ class GUI:
         buffer = ""
         while True:
             try:
-                
-                
- 
                 # if the messages from the server is NAME send the client's name
-                
                 buffer += client.recv(1024).decode(FORMAT)
                 while "/n" in buffer:
                     message, buffer = buffer.split("/n", 1)
-                    
                     if message.startswith("USER_LIST:"):
                         # update the online users list
                         users = message.split(':')[1].split(',')
@@ -299,12 +315,18 @@ class GUI:
                             self.onlineUsers.insert(END, user)
                         user_count = len(users)
                         self.userOnlineLabel.config(text=f"User Online: {user_count}")
+                    elif message == "User not found":
+                        messagebox.showinfo("Info", "User not found")
+                    elif message.startswith("found successfully"):
+                        print("添加成功")
+                        messagebox.showinfo("Info", f"User found and added to your friends list")
                     else:
                         # insert messages to text box
                         self.textCons.config(state=NORMAL)
                         self.textCons.insert(END, message+"\n\n")
                         self.textCons.config(state=DISABLED)
                         self.textCons.see(END)
+                    
             except:
                 # an error will be printed on the command line or console if there's an error
                 print("An error occurred!")
