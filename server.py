@@ -9,7 +9,8 @@ SERVER = "0.0.0.0"
 ADDRESS = (SERVER, PORT)
 FORMAT = "utf-8"
 
-clients, names = [], []
+clients = []
+user_dict = {}  # key: username, value: name
 running = True  # Global flag to control server shutdown
 
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -28,6 +29,16 @@ cursor.execute('''CREATE TABLE IF NOT EXISTS users
               name TEXT NOT NULL,
               username TEXT PRIMARY KEY NOT NULL,
               password TEXT NOT NULL
+              )''')
+db_conn.commit()
+
+# 创建私聊记录数据库
+cursor.execute('''CREATE TABLE IF NOT EXISTS private_messages
+             (
+              sender TEXT NOT NULL,
+              receiver TEXT NOT NULL,
+              message TEXT NOT NULL,
+              timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
               )''')
 db_conn.commit()
 
@@ -72,6 +83,10 @@ def handle(conn, addr):
                 handle_register(conn, message)
             elif message.startswith("LOGIN"):
                 handle_login(conn, message)
+            elif message.startswith("LOAD_CHAT_HISTORY"):
+                handle_load_chat_history(conn, message)
+            elif message.startswith("PRIVATE"):
+                handle_private_message(conn, message)
             elif message.startswith("SEARCH"):
                 handle_search(conn, message)
             elif message.startswith("FRIEND_LIST"):
@@ -86,7 +101,9 @@ def handle(conn, addr):
             print(f"Error: {e}")
             break
     if conn in clients:
-        names.remove(getClientName(conn))
+        username = getClientUsername(conn)
+        if username:
+            del user_dict[username]
         clients.remove(conn)
         broadcastUserList()
         conn.close()
@@ -111,7 +128,7 @@ def handle_login(conn, message):
     if cursor.fetchone():
         conn.send("Login successful".encode(FORMAT))
         clients.append(conn)
-        names.append(name)
+        user_dict[username] = name
         broadcastUserList()
         broadcastMessage(f"{name} has joined the chat!".encode(FORMAT))
         # 发送好友列表
@@ -119,6 +136,23 @@ def handle_login(conn, message):
         conn.send(friend_list_message.encode(FORMAT))
     else:
         conn.send("Login failed".encode(FORMAT))
+
+def handle_load_chat_history(conn, message):
+    sender, receiver = message.split(":")[1], message.split(":")[2]
+    cursor.execute("SELECT sender, message FROM private_messages WHERE (sender=? AND receiver=?) OR (sender=? AND receiver=?) ORDER BY timestamp", (sender, receiver, receiver, sender))
+    messages = cursor.fetchall()
+    for msg in messages:
+        chat_message = f"LOAD_CHAT_HISTORY:{sender}:{receiver}:{msg[0]}:{msg[1]}/n"
+        conn.send(chat_message.encode(FORMAT))
+
+def handle_private_message(conn, message):
+    sender, receiver, message = message.split(":")[1], message.split(":")[2], message.split(":")[3]
+    cursor.execute("INSERT INTO private_messages (sender, receiver, message) VALUES (?,?,?)", (sender, receiver, message))
+    db_conn.commit()
+    for client in clients:
+        if getClientUsername(client) == receiver:
+            client.send(f"PRIVATE:{sender}:{receiver}:{message}/n".encode(FORMAT))
+            break
 
 # 搜索处理
 def handle_search(conn, message):
@@ -156,7 +190,7 @@ def broadcastMessage(message):
         client.send(message+b"/n")
 
 def broadcastUserList():
-    user_list_message = "USER_LIST:" + ",".join(names)  + "/n"
+    user_list_message = "USER_LIST:" + ",".join([f"{username}/{name}" for username, name in user_dict.items()]) + "/n"
     for client in clients:
         client.send(user_list_message.encode(FORMAT))
 
@@ -171,13 +205,9 @@ def create_friend_list_message(username):
             friend_list.append(user1)
     return "FRIEND_LIST:" + ",".join(friend_list) + "/n"
 
-def getClientName(client):
-    index = clients.index(client)
-    return names[index]
-
 def getClientUsername(client):
     index = clients.index(client)
-    return names[index]
+    return list(user_dict.keys())[index]
 
 def control_server():
     global running

@@ -19,7 +19,6 @@ client = socket.socket(socket.AF_INET,
                        socket.SOCK_STREAM)
 client.connect(ADDRESS)
  
- 
 # GUI class for the chat
 class GUI:
     # constructor method
@@ -31,6 +30,7 @@ class GUI:
         
         self.private_chats = {}
         self.message_queues = {}
+        self.user_list = []
  
         # login window
         self.login = Toplevel()
@@ -83,16 +83,7 @@ class GUI:
         self.Window.destroy()
         exit(0)
  
-    def goAhead(self, name):
-        self.login.destroy()
-        self.layout(name)
- 
-        # the thread to receive messages
-        rcv = threading.Thread(target=self.receive)
-        rcv.start()
- 
-        # add protocol to close the window and exit
-        self.Window.protocol("WM_DELETE_WINDOW", self.on_closing)
+    
     
     def loginUser(self,name,username, password):
         self.username = username
@@ -101,7 +92,7 @@ class GUI:
         response = client.recv(1024).decode(FORMAT)
         if response == "Login successful":
             self.login.destroy()
-            self.layout(name)
+            self.layout(name, username)
             rcv = threading.Thread(target=self.receive)
             rcv.start()
         else:
@@ -131,8 +122,9 @@ class GUI:
         Button(info, text="OK", command=info.destroy).pack()
  
     # The main layout of the chat
-    def layout(self, name):
+    def layout(self, name, username):
         self.name = name
+        self.username = username
         # to show chat window
         self.Window.deiconify()
         self.Window.title("CHATROOM")
@@ -312,38 +304,27 @@ class GUI:
         
     
     def open_private_chat(self, event):
-        selected_user = self.onlineUsers.get(self.onlineUsers.curselection())
-        if selected_user == self.name:
+        selected_index = self.onlineUsers.curselection()[0]
+        selected_user = self.onlineUsers.get(selected_index)
+        selected_username = selected_user.split('(')[1][:-1]
+        selected_name = selected_user.split('(')[0]
+        if selected_username == self.username:
             messagebox.showwarning("Private Chat Error", "You cannot begin a private chat with yourself.")
             return
-        if selected_user not in self.private_chats:
-            self.private_chats[selected_user] = PrivateChatWindow(self, selected_user)
-            self.private_chats[selected_user].window.lift()
-            if selected_user in self.message_queues:
-                for msg in self.message_queues[selected_user]:
-                    self.private_chats[selected_user].receiveMessage(msg)
-                del self.message_queues[selected_user]
-        self.private_chats[selected_user].focus()
+        if selected_username not in self.private_chats:
+            self.private_chats[selected_username] = PrivateChatWindow(self, selected_username, selected_name)
+            self.private_chats[selected_username].window.lift()
+            if selected_username in self.message_queues:
+                for msg in self.message_queues[selected_username]:
+                    self.private_chats[selected_username].receiveMessage(msg)
+                del self.message_queues[selected_username]
+        self.private_chats[selected_username].focus()
+
 
     def sendImage(self):
-        file_path = filedialog.askopenfilename()  # 打开文件对话框选择图片
-        if file_path:
-            with open(file_path, "rb") as image_file:
-                encoded_string = base64.b64encode(image_file.read()).decode("utf-8")
-                message = f"IMAGE:{encoded_string}"
-                self.imsg = message
-                sndi = threading.Thread(target=self.sendiMessage)
-                sndi.start()
-    
-    def sendiMessage(self):
-        self.textCons.config(state=DISABLED)
-        while True:
-            message = (f"{self.name}: {self.imsg}")
-            client.send(message.encode(FORMAT))
-            break
+        pass
 
     def sendEmoji(self):
-        # Implement the logic to handle sending emojis
         pass
     
     # function to start the thread for sending messages
@@ -368,12 +349,16 @@ class GUI:
                     if message.startswith("USER_LIST:"):
                         print("Received user list")
                         # update the online users list
-                        users = message.split(':')[1].split(',')
-                        self.onlineUsers.delete(0, END)
-                        for user in users:
-                            self.onlineUsers.insert(END, user)
-                        user_count = len(users)
-                        self.userOnlineLabel.config(text=f"User Online: {user_count}")
+                        try:
+                            user_list = message.split(':')[1].split(',')
+                            self.user_list = [(user.split('/')[0], user.split('/')[1]) for user in user_list if '/' in user]
+                            self.onlineUsers.delete(0, END)
+                            for user in self.user_list:
+                                self.onlineUsers.insert(END, f"{user[1]}({user[0]})")
+                            user_count = len(self.user_list)
+                            self.userOnlineLabel.config(text=f"User Online: {user_count}")
+                        except IndexError:
+                            print("Error parsing user list")
                     elif message.startswith("FRIEND_LIST:"):
                         print("Received friend list")
                         friends = message.split(':')[1].split(',')
@@ -389,14 +374,27 @@ class GUI:
                         messagebox.showinfo("Info", "Already friend")
                     
                     elif message.startswith('PRIVATE'):
+                        print(message)
                         sender, receiver, msg = message.split(':')[1:]
-                        if receiver == self.name:
+                        if receiver == self.username:
                             if sender in self.private_chats:
                                 self.private_chats[sender].receiveMessage(f"{sender}: {msg}")
                             else:
                                 if sender not in self.message_queues:
                                     self.message_queues[sender] = []
                                 self.message_queues[sender].append(f"{sender}: {msg}")
+                    elif message.startswith("LOAD_CHAT_HISTORY:"):
+                        parts = message.split(':', -1)
+                        if len(parts) == 5:
+                            sender, receiver, chat_history = parts[1], parts[2], parts[3] + ": " + parts[4]
+                            if receiver == self.username and sender in self.private_chats:
+                                for msg in chat_history.split("/n"):
+                                    if msg:
+                                        self.private_chats[sender].receiveMessage(msg)
+                            elif sender == self.username and receiver in self.private_chats:
+                                for msg in chat_history.split("/n"):
+                                    if msg:
+                                        self.private_chats[receiver].receiveMessage(msg)
                     else:
                         print("Received message")
                             # insert messages to text box
@@ -409,9 +407,8 @@ class GUI:
                 print(self.name + " connection closed")
                 client.close()
                 break
-            except:
-                # an error will be printed on the command line or console if there's an error
-                print("An error occurred!")
+            except Exception as e:
+                print(f"An error occurred: {e}")
                 client.close()
                 break
  
@@ -424,12 +421,13 @@ class GUI:
             break
  
 class PrivateChatWindow:
-    def __init__(self, parent, user):
+    def __init__(self, parent, username, name):
         self.parent = parent
-        self.user = user
+        self.username = username
+        self.name = name
         
         self.window = Toplevel()
-        self.window.title(f"Private Chat with {user}")
+        self.window.title(f"Private Chat with {name}")
         self.window.geometry("400x400")
         
         self.window.protocol("WM_DELETE_WINDOW", self.on_closing)
@@ -448,9 +446,15 @@ class PrivateChatWindow:
         self.buttonMsg.place(relx=0.77, rely=0.82, relheight=0.06, relwidth=0.22)
 
         self.msg_queue = []
-        
+
+        self.load_chat_history()
+
+    def load_chat_history(self):
+        client.send(f"LOAD_CHAT_HISTORY:{self.parent.username}:{self.username}".encode(FORMAT))
+
     def on_closing(self):
-        del self.parent.private_chats[self.user]
+        if self.username in self.parent.private_chats:
+            del self.parent.private_chats[self.username]
         self.window.destroy()
 
     def sendButton(self, msg):
@@ -464,11 +468,12 @@ class PrivateChatWindow:
             messagebox.showwarning("Warning", "Empty message cannot be sent")
 
     def sendMessage(self):
-        message = f"PRIVATE:{self.parent.name}:{self.user}:{self.msg}"
+        message = f"PRIVATE:{self.parent.username}:{self.username}:{self.msg}/n"
         client.send(message.encode(FORMAT))
-        self.receiveMessage(f"{self.parent.name}: {self.msg}")
+        self.receiveMessage(f"{self.parent.username}: {self.msg}")
 
     def receiveMessage(self, msg):
+        print("private receive message")
         self.textCons.config(state=NORMAL)
         self.textCons.insert(END, msg + "\n\n")
         self.textCons.config(state=DISABLED)
@@ -478,6 +483,8 @@ class PrivateChatWindow:
         self.window.deiconify()
         self.window.lift()
         self.window.focus_force()
+
+
  
 # create a GUI class object
 g = GUI()
