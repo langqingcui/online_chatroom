@@ -268,18 +268,21 @@ class GUI:
     
     def open_private_chat(self, event):
         selected_index = self.onlineUsers.curselection()[0]
-        selected_username, selected_user = self.user_list[selected_index]
-        if selected_user == self.name:
+        selected_user = self.onlineUsers.get(selected_index)
+        selected_username = selected_user.split('(')[1][:-1]
+        selected_name = selected_user.split('(')[0]
+        if selected_username == self.username:
             messagebox.showwarning("Private Chat Error", "You cannot begin a private chat with yourself.")
             return
         if selected_username not in self.private_chats:
-            self.private_chats[selected_username] = PrivateChatWindow(self, selected_username, selected_user)
+            self.private_chats[selected_username] = PrivateChatWindow(self, selected_username, selected_name)
             self.private_chats[selected_username].window.lift()
             if selected_username in self.message_queues:
                 for msg in self.message_queues[selected_username]:
                     self.private_chats[selected_username].receiveMessage(msg)
                 del self.message_queues[selected_username]
         self.private_chats[selected_username].focus()
+
 
     def sendImage(self):
         file_path = filedialog.askopenfilename()  # 打开文件对话框选择图片
@@ -330,7 +333,7 @@ class GUI:
                             self.user_list = [(user.split('/')[0], user.split('/')[1]) for user in user_list if '/' in user]
                             self.onlineUsers.delete(0, END)
                             for user in self.user_list:
-                                self.onlineUsers.insert(END, user[1])
+                                self.onlineUsers.insert(END, f"{user[1]}({user[0]})")
                             user_count = len(self.user_list)
                             self.userOnlineLabel.config(text=f"User Online: {user_count}")
                         except IndexError:
