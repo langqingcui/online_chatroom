@@ -2,7 +2,6 @@ import socket
 import threading
 import base64
 import os
-import base64
 from tkinter import filedialog
 from tkinter import *
 from tkinter import font
@@ -19,19 +18,6 @@ FORMAT = "utf-8"
 client = socket.socket(socket.AF_INET,
                        socket.SOCK_STREAM)
 client.connect(ADDRESS)
-
-def base64_to_utf8(base64_string):
-    # 将 Base64 字符串编码为字节
-    byte_data = base64_string.encode('utf-8')
-    # 将 Base64 字节数据解码为原始字节数据
-    utf8_data = base64.b64decode(byte_data)
-    return utf8_data
-
-def utf8_to_base64(utf8_string):
-    # 将字节数据编码为 Base64
-    base64_data = base64.b64encode(utf8_string)
-    # 将 Base64 字节数据转换为字符串
-    return base64_data.decode('utf-8')
 
 # GUI class for the chat
 class GUI:
