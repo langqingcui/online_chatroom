@@ -129,11 +129,11 @@ def handle_login(conn, message):
         conn.send("Login successful".encode(FORMAT))
         clients.append(conn)
         user_dict[username] = name
-        broadcastUserList()
-        broadcastMessage(f"{name} has joined the chat!".encode(FORMAT))
         # 发送好友列表
         friend_list_message = create_friend_list_message(username)
         conn.send(friend_list_message.encode(FORMAT))
+        broadcastUserList()
+        broadcastMessage(f"{name} has joined the chat!".encode(FORMAT))  
     else:
         conn.send("Login failed".encode(FORMAT))
 
@@ -176,6 +176,8 @@ def handle_search(conn, message):
                 if username == my_username or username == search_username:
                     friend_list_message = create_friend_list_message(username)
                     client.send(friend_list_message.encode(FORMAT))
+            # 强制刷新在线用户列表，保证加好友之后能直接在好友列表中显示在线
+            broadcastUserList()
     else:
         conn.send("User not found".encode(FORMAT) + b"/n")
 
@@ -200,9 +202,14 @@ def create_friend_list_message(username):
     friend_list = []
     for user1, user2 in friends:
         if user1 == username:
-            friend_list.append(user2)
+            friend_username = user2
         else:
-            friend_list.append(user1)
+            friend_username = user1
+        
+        # 获取朋友的姓名
+        cursor.execute("SELECT name FROM users WHERE username=?", (friend_username,))
+        friend_name = cursor.fetchone()[0]
+        friend_list.append(f"{friend_name}({friend_username})")
     return "FRIEND_LIST:" + ",".join(friend_list) + "/n"
 
 def getClientUsername(client):

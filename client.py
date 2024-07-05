@@ -293,7 +293,7 @@ class GUI:
         
 
         # Bind double-click event to Listbox
-        self.onlineUsers.bind("<Double-1>", self.open_private_chat)
+        self.myFriend.bind("<Double-1>", self.open_private_chat)
         
 
     def searchUser(self):
@@ -304,8 +304,8 @@ class GUI:
         
     
     def open_private_chat(self, event):
-        selected_index = self.onlineUsers.curselection()[0]
-        selected_user = self.onlineUsers.get(selected_index)
+        selected_index = self.myFriend.curselection()[0]
+        selected_user = self.myFriend.get(selected_index)
         selected_username = selected_user.split('(')[1][:-1]
         selected_name = selected_user.split('(')[0]
         if selected_username == self.username:
@@ -357,6 +357,14 @@ class GUI:
                                 self.onlineUsers.insert(END, f"{user[1]}({user[0]})")
                             user_count = len(self.user_list)
                             self.userOnlineLabel.config(text=f"User Online: {user_count}")
+                            # Update friend list with online status
+                            for i in range(self.myFriend.size()):
+                                friend = self.myFriend.get(i)
+                                friend_username = friend.split('(')[1][:-1]
+                                if any(user[0] == friend_username for user in self.user_list):
+                                    self.myFriend.itemconfig(i, {'fg': 'white'})
+                                else:
+                                    self.myFriend.itemconfig(i, {'fg': 'gray'})
                         except IndexError:
                             print("Error parsing user list")
                     elif message.startswith("FRIEND_LIST:"):
@@ -383,6 +391,7 @@ class GUI:
                                 if sender not in self.message_queues:
                                     self.message_queues[sender] = []
                                 self.message_queues[sender].append(f"{sender}: {msg}")
+
                     elif message.startswith("LOAD_CHAT_HISTORY:"):
                         parts = message.split(':', -1)
                         if len(parts) == 5:
