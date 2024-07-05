@@ -11,7 +11,7 @@ from tkinter import messagebox, filedialog
 from PIL import Image, ImageTk
  
 PORT = 5000
-SERVER = "172.20.10.3"
+SERVER = "120.46.87.122"
 ADDRESS = (SERVER, PORT)
 FORMAT = "utf-8"
  
