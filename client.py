@@ -11,7 +11,8 @@ from tkinter import messagebox, filedialog
 from PIL import Image, ImageTk
  
 PORT = 5000
-SERVER = "120.46.87.122"
+# SERVER = "120.46.87.122"
+SERVER = "172.20.10.3"
 ADDRESS = (SERVER, PORT)
 FORMAT = "utf-8"
  
@@ -309,6 +310,14 @@ class GUI:
     def searchUser(self):
         my_username = self.username
         search_username = self.searchEntry.get()
+        
+        if search_username == my_username:
+            messagebox.showwarning("Warning", "You cannot add yourself as a friend.")
+            return
+        if not search_username:
+            messagebox.showwarning("Warning", "Username cannot be empty.")
+            return
+        
         message = f"SEARCH:{my_username}:{search_username}"
         client.send(message.encode(FORMAT)) 
         
